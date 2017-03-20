@@ -1,46 +1,68 @@
+import BookMyShow.availableSeats
 import akka.actor.{Actor, ActorSystem, Props}
-import akka.pattern.ask
+import akka.routing.FromConfig
 import akka.util.Timeout
+import com.typesafe.config.ConfigFactory
 
 import scala.concurrent.duration.DurationDouble
 
 /**
   * Created by knoldus on 20/3/17.
   */
-case class Seat(seats: Int)
+case class Seat(seat: Int)
 
 class BookMyShow extends Actor {
-  //var totalSeats=50
-  var availableSeats = 50
 
   override def receive = {
-    case Seat(seats) => {
-      if (availableSeats >= seats) {
-        availableSeats = availableSeats - seats
-        sender() ! "seat Booked"
-        println(availableSeats)
+    case Seat(seat) =>
+      if (availableSeats >= seat) {
+        availableSeats -= seat
+        println("seat booked   "+self.path)
       }
       else if (availableSeats == 0) {
-        sender() ! "HouseFull"
+        println("Housefull  "+self.path)
       }
       else {
-        sender() ! "Seats Not available"
+
+        println("Seats not available    "+self.path)
       }
 
     }
 
-  }
+
 }
 
 
 object BookMyShow extends App {
+  var availableSeats=1
+  val config = ConfigFactory.parseString(
+    """
+      |akka.actor.deployment {
+      | /poolRouter {
+      |   router = round-robin-pool
+      |   resizer {
+      |      pressure-threshold = 0
+      |      lower-bound = 2
+      |      upper-bound = 5
+      |      messages-per-resize = 1
+      |    }
+      | }
+      |}
+    """.stripMargin
+  )
   implicit val timeout = Timeout(1000 seconds)
-  val system = ActorSystem("BookMyshow")
-  val props = Props[BookMyShow]
-  val ref = system.actorOf(props)
-  val list = List(Seat(10), Seat(15), Seat(15), Seat(13), Seat(8))
-  val res = list.map(x => ref ? x)
-  res.map(x => println(x))
+  val system = ActorSystem("BookMyshow", config)
+  val router = system.actorOf(FromConfig.props(Props[BookMyShow]), "poolRouter")
+
+  router ! Seat(1)
+  router ! Seat(1)
+  router ! Seat(1)
+  router ! Seat(1)
+  router ! Seat(1)
+  router ! Seat(1)
+  router ! Seat(1)
+  router ! Seat(1)
+  router ! Seat(1)
 
 
 }
